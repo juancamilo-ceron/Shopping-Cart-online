@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  shopping-cart:
+    container_name: shopping-cart
+    image: juancamilocd/shopping:latest  # Usa la imagen personalizada
+    build:
+      context: .
+      dockerfile: docker/Dockerfile      # Ruta relativa a tu Dockerfile
+    ports:
+      - "8070:8070"
+    networks:
+      - backend
+    restart: unless-stopped
+
+networks:
+  backend:
+    name: network_jenkins
+
