@@ -1,0 +1,69 @@
+pipeline {
+    agent any
+
+    tools {
+        // Install the Maven version configured as "M3" and add it to the path.
+        maven "MAVEN_HOME"
+    }
+
+    environment {
+        SonarToken = credentials('Sonarqube')
+    }
+
+    parameters {
+        string defaultValue: 'https://github.com/robinarehen/repasando-programacion.git', description: 'Se espera url del proyecto en GitHub', name: 'GitUrl'
+        string defaultValue: 'master', description: 'Se espera el nombre de la rama del proyecto en GitHub', name: 'Branch'
+        string defaultValue: 'com.example.esme', description: 'Se espera GroupId del pom.xml', name: 'GroupId'
+        string defaultValue: 'repasando-programacio', description: 'Se espera ArtifactId del pom.xml', name: 'ArtifactId'
+    }
+
+    stages {
+        stage('Clone') {
+            steps {
+                git branch:"${Branch}", url:"${GitUrl}"
+            }
+        }
+        stage('Build') {
+            steps {
+                sh "mvn -DskipTests clean package"
+            }
+        }
+        stage('Test') {
+            steps {
+                sh "mvn clean install"
+            }
+        }
+        stage('Sonar') {
+            steps {
+                sh "mvn sonar:sonar -Pcoverage -Dsonar.host.url=${SONAR_URL_DEV} -Dsonar.login=${SonarToken}"
+            }
+        }
+        stage('Quality Gate') {
+            steps {
+                sleep(10) //seconds
+
+                /*
+                * Se implementa la consulta de la QualityGate de Sonar
+                * grep -o $SONAR_KEY => permite obtener todos los status en lineas una bajo la otra
+                * sed 1q => permite obtener la primera fila de los estatus
+                * sed $SONAR_STATUS => permite obtner el valor del status
+                */
+                sh '''
+                    SONAR_KEY='"status":"[^"]*'
+                    SONAR_STATUS='s/"status":"//g'
+                    SONAR_RESPONSE=$(curl -u $SonarToken: "${SONAR_URL_API_DEV}=${GroupId}:${ArtifactId}" | grep -o $SONAR_KEY | sed 1q | sed $SONAR_STATUS)
+
+                    if [ $SONAR_RESPONSE != 'OK' ]
+                    then
+                        return -1
+                    fi
+                '''
+            }
+        }
+        stage('Deploy') {
+            steps {
+                echo "mvn spring-boot:run -f micro-product/pom.xml"
+            }
+        }
+    }
+}

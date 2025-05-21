@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  jenkins:
+    container_name: jenkins
+    image: jenkins/jenkins:lts
+    user: root
+    volumes:
+      - jenkins_data:/var/jenkins_home
+      - /var/run/docker.sock:/var/run/docker.sock
+    ports:
+      - "9080:8080"
+    networks:
+      - backend
+
+volumes:
+  jenkins_data:
+
+networks:
+  backend:
+    name: network_jenkins
